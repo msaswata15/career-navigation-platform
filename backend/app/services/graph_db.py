@@ -2,6 +2,8 @@
 Career path finding using Neo4j graph database
 """
 
+import os
+import google.generativeai as genai
 from neo4j import GraphDatabase
 from typing import List, Dict, Optional
 from dataclasses import dataclass
@@ -80,6 +82,16 @@ class CareerGraphDB:
                          max_hops: int = 4) -> List[CareerPath]:
         """Find possible career paths"""
         
+        # Try AI-powered role matching if exact match might fail
+        matched_current = self._match_role_with_ai(current_role)
+        if matched_current:
+            current_role = matched_current
+        
+        if target_role:
+            matched_target = self._match_role_with_ai(target_role)
+            if matched_target:
+                target_role = matched_target
+        
         with self.driver.session() as session:
             if target_role:
                 # Find paths to specific target
@@ -128,6 +140,43 @@ class CareerGraphDB:
                 ))
             
             return paths
+    
+    def _get_all_roles(self) -> List[str]:
+        """Get all role titles from database"""
+        with self.driver.session() as session:
+            result = session.run("MATCH (r:Role) RETURN r.title as title")
+            return [record['title'] for record in result]
+    
+    def _match_role_with_ai(self, user_role: str) -> Optional[str]:
+        """Use Gemini to find the best matching role from database"""
+        try:
+            api_key = os.getenv("GOOGLE_API_KEY")
+            if not api_key:
+                return None
+            
+            available_roles = self._get_all_roles()
+            if not available_roles:
+                return None
+            
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-2.0-flash")
+            
+            prompt = f"""Given these career roles from a database:
+{chr(10).join(f'- {role}' for role in available_roles)}
+
+Which ONE role best matches this user input: "{user_role}"?
+
+Return ONLY the exact role name from the list above, nothing else. If no good match exists, return "NONE"."""
+            
+            response = model.generate_content(prompt)
+            matched_role = response.text.strip()
+            
+            if matched_role in available_roles:
+                return matched_role
+            return None
+        except Exception as e:
+            print(f"AI role matching failed: {e}")
+            return None
     
     def _get_role_skills(self, role_title: str) -> List[str]:
         """Get required skills for a role"""
