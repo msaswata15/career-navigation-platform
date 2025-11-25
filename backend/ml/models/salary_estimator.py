@@ -1,0 +1,2 @@
+class SalaryEstimator:
+    pass

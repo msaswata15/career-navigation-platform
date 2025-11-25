@@ -1,0 +1,2 @@
+class SkillMatcher:
+    pass

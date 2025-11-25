@@ -1,0 +1,67 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Install Backend Dependencies",
+			"type": "shell",
+			"command": "pip install -r requirements.txt",
+			"options": {
+				"cwd": "${workspaceFolder}/backend"
+			},
+			"presentation": {
+				"reveal": "always",
+				"panel": "new"
+			}
+		},
+		{
+			"label": "Start Backend API",
+			"type": "shell",
+			"command": "uvicorn app.main:app --reload",
+			"options": {
+				"cwd": "${workspaceFolder}/backend"
+			},
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "new"
+			}
+		},
+		{
+			"label": "Install Frontend Dependencies",
+			"type": "shell",
+			"command": "npm install",
+			"options": {
+				"cwd": "${workspaceFolder}/frontend"
+			},
+			"presentation": {
+				"reveal": "always",
+				"panel": "new"
+			}
+		},
+		{
+			"label": "Start Frontend",
+			"type": "shell",
+			"command": "npm run dev",
+			"options": {
+				"cwd": "${workspaceFolder}/frontend"
+			},
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "new"
+			}
+		},
+		{
+			"label": "Refactor AI Parser",
+			"type": "shell",
+			"command": "python",
+			"args": [
+				"-m",
+				"pip",
+				"install",
+				"google-generativeai"
+			],
+			"isBackground": false
+		}
+	]
+}

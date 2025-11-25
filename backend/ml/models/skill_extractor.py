@@ -1,0 +1,2 @@
+class SkillExtractor:
+    pass

@@ -1,0 +1,2 @@
+class PathFinder:
+    pass

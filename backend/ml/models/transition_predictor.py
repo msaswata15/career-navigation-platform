@@ -1,0 +1,2 @@
+class TransitionPredictor:
+    pass

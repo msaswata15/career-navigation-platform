@@ -1,0 +1,2 @@
+class Recommender:
+    pass
