@@ -39,7 +39,8 @@ skill_db = SkillVectorDB(pinecone_api_key=settings.PINECONE_API_KEY)
 career_graph = CareerGraphDB(
     uri=settings.NEO4J_URI,
     user=settings.NEO4J_USER,
-    password=settings.NEO4J_PASSWORD
+    password=settings.NEO4J_PASSWORD,
+    google_api_key=settings.GOOGLE_API_KEY
 )
 cache = RedisCache(redis_url=settings.REDIS_URL)
 
@@ -76,11 +77,14 @@ async def parse_resume(file: UploadFile = File(...)):
 async def get_career_paths(request: CareerPathRequest):
     """Get personalized career paths"""
     try:
+        print(f"[DEBUG] Received request: current_role='{request.current_role}', target_role='{request.target_role}', user_skills={request.user_skills[:5] if request.user_skills else []}")
+        
         # Find paths in graph
         paths = career_graph.find_career_paths(
             current_role=request.current_role,
             target_role=request.target_role
         )
+        print(f"[DEBUG] Found {len(paths)} paths from graph")
         
         # Analyze skill gaps for each path
         analyzed_paths = []

@@ -16,7 +16,7 @@ const CareerPaths = ({ parsedData }) => {
       const payload = {
         current_role: parsedData.current_role,
         user_skills: parsedData.skills.map(s => s.name),
-        target_role: targetRole || null
+        target_role: targetRole.trim() || null
       };
 
       const response = await axios.post('/api/v1/career-paths', payload);

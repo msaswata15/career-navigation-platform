@@ -2,7 +2,6 @@
 Career path finding using Neo4j graph database
 """
 
-import os
 import google.generativeai as genai
 from neo4j import GraphDatabase
 from typing import List, Dict, Optional
@@ -17,8 +16,9 @@ class CareerPath:
     required_skills: List[str]
 
 class CareerGraphDB:
-    def __init__(self, uri: str, user: str, password: str):
+    def __init__(self, uri: str, user: str, password: str, google_api_key: Optional[str] = None):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
+        self.google_api_key = google_api_key
     
     def close(self):
         self.driver.close()
@@ -150,15 +150,18 @@ class CareerGraphDB:
     def _match_role_with_ai(self, user_role: str) -> Optional[str]:
         """Use Gemini to find the best matching role from database"""
         try:
-            api_key = os.getenv("GOOGLE_API_KEY")
-            if not api_key:
+            if not self.google_api_key:
+                print(f"[DEBUG] No GOOGLE_API_KEY found, skipping AI matching")
                 return None
             
             available_roles = self._get_all_roles()
             if not available_roles:
+                print(f"[DEBUG] No roles found in database")
                 return None
             
-            genai.configure(api_key=api_key)
+            print(f"[DEBUG] AI matching '{user_role}' against {len(available_roles)} database roles: {available_roles}")
+            
+            genai.configure(api_key=self.google_api_key)
             model = genai.GenerativeModel("gemini-2.0-flash")
             
             prompt = f"""Given these career roles from a database:
@@ -171,11 +174,13 @@ Return ONLY the exact role name from the list above, nothing else. If no good ma
             response = model.generate_content(prompt)
             matched_role = response.text.strip()
             
+            print(f"[DEBUG] AI matched '{user_role}' -> '{matched_role}'")
+            
             if matched_role in available_roles:
                 return matched_role
             return None
         except Exception as e:
-            print(f"AI role matching failed: {e}")
+            print(f"[DEBUG] AI role matching failed: {e}")
             return None
     
     def _get_role_skills(self, role_title: str) -> List[str]:
