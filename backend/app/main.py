@@ -183,15 +183,7 @@ CURRENT SITUATION:
 
 TASK: Create a realistic step-by-step career transition plan from {current_role} to {target_role}.
 
-IMPORTANT: This is a cross-industry transition. Provide practical, actionable guidance including:
-1. Feasibility assessment (is this transition realistic?)
-2. Estimated timeline (in months)
-3. Key steps/milestones with specific actions
-4. Skills to acquire for each step
-5. Transferable skills from current role
-6. Potential challenges and how to overcome them
-7. Alternative intermediate roles to consider
-8. Estimated difficulty (1-10 scale)
+IMPORTANT: Provide detailed information including realistic salary data and skill matching.
 
 Return your response as a JSON object with this exact structure:
 {{
@@ -199,21 +191,49 @@ Return your response as a JSON object with this exact structure:
   "feasibility_note": "explanation of why this transition is or isn't feasible",
   "estimated_timeline_months": number,
   "difficulty_rating": number (1-10),
-  "transferable_skills": ["skill1", "skill2", ...],
+  
+  "salary_info": {{
+    "current_role_avg_salary": number (annual USD),
+    "target_role_avg_salary": number (annual USD),
+    "initial_salary_drop": number (if any, negative for decrease),
+    "long_term_salary_potential": number (after 5 years in new field),
+    "salary_note": "explanation of salary trajectory"
+  }},
+  
+  "skill_analysis": {{
+    "transferable_skills": ["skill1", "skill2", ...],
+    "skill_match_percentage": number (0-100),
+    "skills_that_translate": [
+      {{"from": "current skill", "to": "how it applies in new role"}}
+    ],
+    "missing_critical_skills": ["skill1", "skill2", ...]
+  }},
+  
   "transition_steps": [
     {{
       "step": 1,
       "title": "Step title",
       "description": "Detailed description",
       "duration_months": number,
+      "estimated_salary": number (expected earnings during this step),
       "skills_to_acquire": ["skill1", "skill2", ...],
-      "actions": ["action1", "action2", ...]
+      "actions": ["action1", "action2", ...],
+      "estimated_cost": number (tuition, certifications, etc. in USD)
     }}
   ],
+  
   "challenges": ["challenge1", "challenge2", ...],
   "success_tips": ["tip1", "tip2", ...],
-  "alternative_paths": ["alternative role 1", "alternative role 2", ...]
+  "alternative_paths": ["alternative role 1", "alternative role 2", ...],
+  "realistic_success_rate": number (0-100, percentage likelihood of successful transition)
 }}
+
+GUIDELINES:
+- Use realistic salary data based on industry standards (e.g., pilot entry ~$40k-60k, experienced ~$150k+)
+- Calculate actual skill match percentage based on transferable skills
+- Be honest about salary drops during transition periods
+- Include estimated costs for certifications, training, etc.
+- Consider the user's current skills when determining skill match percentage
 
 Be realistic and honest. If the transition is extremely difficult or unlikely, say so and suggest more feasible alternatives."""
 
@@ -234,54 +254,87 @@ Be realistic and honest. If the transition is extremely difficult or unlikely, s
         import json
         guidance = json.loads(response_text)
         
-        print(f"[DEBUG] Generated cross-industry guidance: feasible={guidance.get('is_feasible')}")
+        print(f"[DEBUG] Generated cross-industry guidance: feasible={guidance.get('is_feasible')}, skill_match={guidance.get('skill_analysis', {}).get('skill_match_percentage', 0)}%")
         
         # Format as career path response
         if guidance.get('is_feasible'):
             # Create synthetic path for UI
             steps = guidance.get('transition_steps', [])
+            salary_info = guidance.get('salary_info', {})
+            skill_analysis = guidance.get('skill_analysis', {})
+            
+            current_salary = salary_info.get('current_role_avg_salary', 0)
+            target_salary = salary_info.get('target_role_avg_salary', 0)
             
             transitions = []
             for i, step in enumerate(steps):
+                step_salary = step.get('estimated_salary', current_salary)
+                prev_salary = current_salary if i == 0 else steps[i-1].get('estimated_salary', current_salary)
+                
                 transitions.append({
                     'step': step.get('step', i + 1),
                     'from_role': current_role if i == 0 else steps[i-1].get('title', f"Step {i}"),
                     'to_role': step.get('title', f"Step {i+1}"),
                     'duration_months': step.get('duration_months', 12),
                     'difficulty': guidance.get('difficulty_rating', 7),
-                    'success_rate': max(0.3, 1.0 - (guidance.get('difficulty_rating', 7) / 15)),
-                    'salary_from': 0,
-                    'salary_to': 0,
-                    'salary_increase': 0,
+                    'success_rate': guidance.get('realistic_success_rate', 50) / 100,
+                    'salary_from': int(prev_salary),
+                    'salary_to': int(step_salary),
+                    'salary_increase': int(step_salary - prev_salary),
                     'required_skills': step.get('skills_to_acquire', []),
                     'description': step.get('description', ''),
-                    'actions': step.get('actions', [])
+                    'actions': step.get('actions', []),
+                    'estimated_cost': step.get('estimated_cost', 0)
                 })
+            
+            # Calculate overall salary growth (from current to target)
+            final_salary = target_salary or (steps[-1].get('estimated_salary', current_salary) if steps else current_salary)
+            salary_growth = int(final_salary - current_salary)
+            
+            # Get skill match percentage
+            skill_match = skill_analysis.get('skill_match_percentage', 0)
+            transferable_skills = skill_analysis.get('transferable_skills', [])
+            missing_skills = skill_analysis.get('missing_critical_skills', [])
+            
+            # Add all step-specific skills to missing skills
+            all_missing = list(set(missing_skills + [s for step in steps for s in step.get('skills_to_acquire', [])]))
             
             path = {
                 'roles': [current_role] + [s.get('title', f"Step {i+1}") for i, s in enumerate(steps)] + [target_role],
                 'timeline_months': guidance.get('estimated_timeline_months', sum(s.get('duration_months', 12) for s in steps)),
                 'difficulty': guidance.get('difficulty_rating', 7),
-                'salary_growth': 0,  # Unknown for cross-industry
-                'skill_match': 0,
-                'missing_skills': [skill for step in steps for skill in step.get('skills_to_acquire', [])],
-                'matched_skills': guidance.get('transferable_skills', []),
+                'salary_growth': salary_growth,
+                'skill_match': skill_match,
+                'missing_skills': all_missing,
+                'matched_skills': transferable_skills,
                 'transitions': transitions,
                 'is_cross_industry': True,
                 'feasibility_note': guidance.get('feasibility_note', ''),
                 'challenges': guidance.get('challenges', []),
                 'success_tips': guidance.get('success_tips', []),
-                'alternative_paths': guidance.get('alternative_paths', [])
+                'alternative_paths': guidance.get('alternative_paths', []),
+                'salary_info': {
+                    'current_avg': int(current_salary),
+                    'target_avg': int(final_salary),
+                    'initial_drop': int(salary_info.get('initial_salary_drop', 0)),
+                    'long_term_potential': int(salary_info.get('long_term_salary_potential', final_salary)),
+                    'note': salary_info.get('salary_note', '')
+                },
+                'skill_translation': skill_analysis.get('skills_that_translate', []),
+                'realistic_success_rate': guidance.get('realistic_success_rate', 50)
             }
+            
+            # Calculate path score
+            path['score'] = calculate_cross_industry_score(path)
             
             return {
                 'paths': [path],
                 'recommended_path': path,
                 'skill_gaps': [{
                     'roles': path['roles'],
-                    'match_percentage': 0,
-                    'matched_skills': guidance.get('transferable_skills', []),
-                    'missing_skills': path['missing_skills']
+                    'match_percentage': skill_match,
+                    'matched_skills': transferable_skills,
+                    'missing_skills': all_missing
                 }]
             }
         else:
@@ -303,6 +356,40 @@ Be realistic and honest. If the transition is extremely difficult or unlikely, s
         import traceback
         traceback.print_exc()
         return None
+
+def calculate_cross_industry_score(path: Dict) -> float:
+    """Calculate score for cross-industry transitions"""
+    # Different weighting for cross-industry transitions
+    weights = {
+        'skill_match': 0.3,
+        'success_rate': 0.25,
+        'salary_potential': 0.25,
+        'timeline': 0.1,
+        'difficulty': 0.1
+    }
+    
+    # Normalize values
+    skill_score = path.get('skill_match', 0) / 100
+    success_score = path.get('realistic_success_rate', 50) / 100
+    
+    # Salary potential (considering long-term, not just immediate)
+    salary_info = path.get('salary_info', {})
+    long_term_potential = salary_info.get('long_term_potential', salary_info.get('target_avg', 0))
+    current_salary = salary_info.get('current_avg', 1)
+    salary_score = min(max(long_term_potential / max(current_salary, 1), 0), 2) / 2  # Normalize to 0-1
+    
+    timeline_score = max(0, 1 - (path.get('timeline_months', 24) / 72))  # 6 years max
+    difficulty_score = max(0, 1 - (path.get('difficulty', 5) / 10))
+    
+    score = (
+        weights['skill_match'] * skill_score +
+        weights['success_rate'] * success_score +
+        weights['salary_potential'] * salary_score +
+        weights['timeline'] * timeline_score +
+        weights['difficulty'] * difficulty_score
+    )
+    
+    return round(score * 100, 2)  # Return as percentage
 
 def calculate_path_score(path: Dict) -> float:
     """Calculate overall path score"""
