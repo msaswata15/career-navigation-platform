@@ -11,13 +11,13 @@ class ExtractedExperience(BaseModel):
 
 class ParsedResume(BaseModel):
     full_name: str
-    email: Optional[str]
-    phone: Optional[str]
+    email: Optional[str] = None
+    phone: Optional[str] = None
     current_role: str
     years_total_experience: int
     skills: List[ExtractedSkill]
     experience: List[ExtractedExperience]
     education: List[str]
     certifications: List[str]
-    industry: str
+    industry: Optional[str] = "Technology"  # Default to Technology if not detected
     summary: str

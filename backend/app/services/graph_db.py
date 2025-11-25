@@ -5,7 +5,7 @@ Career path finding using Neo4j graph database
 import google.generativeai as genai
 from neo4j import GraphDatabase
 from typing import List, Dict, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 @dataclass
 class CareerPath:
@@ -14,6 +14,7 @@ class CareerPath:
     avg_difficulty: float
     salary_growth: int
     required_skills: List[str]
+    transitions: List[Dict] = field(default_factory=list)  # Detailed step-by-step transition info
 
 class CareerGraphDB:
     def __init__(self, uri: str, user: str, password: str, google_api_key: Optional[str] = None):
@@ -102,9 +103,11 @@ class CareerGraphDB:
                     WITH path, relationships(path) as rels, nodes(path) as roles
                     RETURN 
                         [r in roles | r.title] as role_titles,
+                        [r in roles | r.avg_salary] as role_salaries,
                         reduce(months = 0, rel in rels | months + rel.avg_months) as total_months,
                         reduce(diff = 0, rel in rels | diff + rel.difficulty) / size(rels) as avg_difficulty,
-                        roles[-1].avg_salary - roles[0].avg_salary as salary_growth
+                        roles[-1].avg_salary - roles[0].avg_salary as salary_growth,
+                        [rel in rels | {{avg_months: rel.avg_months, difficulty: rel.difficulty, success_rate: rel.success_rate}}] as transition_details
                     ORDER BY total_months, avg_difficulty
                     LIMIT 10
                 """
@@ -117,9 +120,11 @@ class CareerGraphDB:
                     WHERE size(roles) >= 2
                     RETURN DISTINCT
                         [r in roles | r.title] as role_titles,
+                        [r in roles | r.avg_salary] as role_salaries,
                         reduce(months = 0, rel in rels | months + rel.avg_months) as total_months,
                         reduce(diff = 0, rel in rels | diff + rel.difficulty) / size(rels) as avg_difficulty,
-                        roles[-1].avg_salary - roles[0].avg_salary as salary_growth
+                        roles[-1].avg_salary - roles[0].avg_salary as salary_growth,
+                        [rel in rels | {{avg_months: rel.avg_months, difficulty: rel.difficulty, success_rate: rel.success_rate}}] as transition_details
                     ORDER BY salary_growth DESC, total_months ASC
                     LIMIT 20
                 """
@@ -131,12 +136,42 @@ class CareerGraphDB:
                 target = record['role_titles'][-1]
                 skills = self._get_role_skills(target)
                 
+                # Build detailed transitions for each step
+                transitions = []
+                role_titles = record['role_titles']
+                role_salaries = record['role_salaries']
+                transition_details = record['transition_details']
+                
+                for i in range(len(role_titles) - 1):
+                    from_role = role_titles[i]
+                    to_role = role_titles[i + 1]
+                    from_salary = role_salaries[i]
+                    to_salary = role_salaries[i + 1]
+                    trans_info = transition_details[i]
+                    
+                    # Get skills needed for the destination role of this transition
+                    step_skills = self._get_role_skills(to_role)
+                    
+                    transitions.append({
+                        'step': i + 1,
+                        'from_role': from_role,
+                        'to_role': to_role,
+                        'duration_months': trans_info['avg_months'],
+                        'difficulty': trans_info['difficulty'],
+                        'success_rate': trans_info['success_rate'],
+                        'salary_from': from_salary,
+                        'salary_to': to_salary,
+                        'salary_increase': to_salary - from_salary,
+                        'required_skills': step_skills
+                    })
+                
                 paths.append(CareerPath(
                     roles=record['role_titles'],
                     total_months=record['total_months'],
                     avg_difficulty=record['avg_difficulty'],
                     salary_growth=record['salary_growth'],
-                    required_skills=skills
+                    required_skills=skills,
+                    transitions=transitions
                 ))
             
             return paths

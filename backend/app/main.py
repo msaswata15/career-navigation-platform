@@ -95,13 +95,29 @@ async def get_career_paths(request: CareerPathRequest):
                 role_required_skills=path.required_skills
             )
 
+            # Enrich transitions with skill matching for each step
+            enriched_transitions = []
+            if path.transitions:
+                for trans in path.transitions:
+                    step_skill_gap = skill_db.match_user_skills_to_role(
+                        user_skills=request.user_skills,
+                        role_required_skills=trans['required_skills']
+                    )
+                    enriched_transitions.append({
+                        **trans,
+                        'skills_to_learn': step_skill_gap['missing_skills'],
+                        'skills_match': step_skill_gap['matched_skills']
+                    })
+            
             analyzed_paths.append({
                 'roles': path.roles,
                 'timeline_months': path.total_months,
                 'difficulty': path.avg_difficulty,
                 'salary_growth': path.salary_growth,
                 'skill_match': skill_gap['match_percentage'],
-                'missing_skills': skill_gap['missing_skills']
+                'missing_skills': skill_gap['missing_skills'],
+                'matched_skills': skill_gap['matched_skills'],
+                'transitions': enriched_transitions
             })
 
             skill_gap_details.append({

@@ -124,7 +124,8 @@ class SkillVectorDB:
         
         return {
             'match_percentage': match_percentage,
-            'matched_skills': matched_skills,
+            'matched_skills': [skill['user_has'] for skill in matched_skills],  # Return just skill names
+            'matched_skills_details': matched_skills,  # Keep detailed match info
             'missing_skills': missing_skills
         }
 
