@@ -98,7 +98,41 @@ async def get_career_paths(request: CareerPathRequest):
             if cross_industry_guidance:
                 return cross_industry_guidance
         
-        # Analyze skill gaps for each path
+
+        import google.generativeai as genai
+        import asyncio
+        genai.configure(api_key=settings.GOOGLE_API_KEY)
+        model = genai.GenerativeModel("gemini-2.0-flash")
+
+        async def enrich_step_with_gemini(step, from_role, to_role, user_skills):
+            skills_text = ", ".join(user_skills[:10]) if user_skills else "Not specified"
+            prompt = f"""You are an expert career coach. For the transition from '{from_role}' to '{to_role}', provide:
+1. 3-5 specific learning resources (YouTube, courses, docs, books, bootcamps) for the most important skills in this step.
+2. 1-2 relevant certifications (with provider, cost, and URL or search term).
+3. 1-2 practical project ideas (with description and resource links).
+4. For each resource, include: skill, resource_type, title, url or search term, provider, duration, cost, difficulty, why_recommended.
+5. For each certification: name, provider, estimated_cost, study_duration, validity, url or search term, importance.
+6. For each project: project_title, description, estimated_time, resources (links).
+Context: User skills: {skills_text}. Step required skills: {', '.join(step.get('required_skills', []))}.
+Return as JSON with keys: learning_resources, certifications, practical_projects."""
+            response = await asyncio.to_thread(model.generate_content, prompt)
+            response_text = response.text.strip()
+            import json
+            # Extract JSON from response (handle markdown code blocks)
+            if '```json' in response_text:
+                response_text = response_text.split('```json')[1].split('```')[0].strip()
+            elif '```' in response_text:
+                response_text = response_text.split('```')[1].split('```')[0].strip()
+            try:
+                data = json.loads(response_text)
+            except Exception:
+                data = {}
+            return {
+                'learning_resources': data.get('learning_resources', []),
+                'certifications': data.get('certifications', []),
+                'practical_projects': data.get('practical_projects', [])
+            }
+
         analyzed_paths = []
         skill_gap_details = []
         for path in paths:
@@ -107,20 +141,32 @@ async def get_career_paths(request: CareerPathRequest):
                 role_required_skills=path.required_skills
             )
 
-            # Enrich transitions with skill matching for each step
             enriched_transitions = []
             if path.transitions:
+                # Enrich each step with Gemini-powered resources
+                tasks = []
                 for trans in path.transitions:
                     step_skill_gap = skill_db.match_user_skills_to_role(
                         user_skills=request.user_skills,
                         role_required_skills=trans['required_skills']
                     )
+                    tasks.append(enrich_step_with_gemini(trans, trans['from_role'], trans['to_role'], request.user_skills))
+                gemini_results = await asyncio.gather(*tasks)
+                for i, trans in enumerate(path.transitions):
+                    step_skill_gap = skill_db.match_user_skills_to_role(
+                        user_skills=request.user_skills,
+                        role_required_skills=trans['required_skills']
+                    )
+                    gemini_data = gemini_results[i] if i < len(gemini_results) else {}
                     enriched_transitions.append({
                         **trans,
                         'skills_to_learn': step_skill_gap['missing_skills'],
-                        'skills_match': step_skill_gap['matched_skills']
+                        'skills_match': step_skill_gap['matched_skills'],
+                        'learning_resources': gemini_data.get('learning_resources', []),
+                        'certifications': gemini_data.get('certifications', []),
+                        'practical_projects': gemini_data.get('practical_projects', [])
                     })
-            
+
             analyzed_paths.append({
                 'roles': path.roles,
                 'timeline_months': path.total_months,
