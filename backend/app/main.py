@@ -183,7 +183,7 @@ CURRENT SITUATION:
 
 TASK: Create a realistic step-by-step career transition plan from {current_role} to {target_role}.
 
-IMPORTANT: Provide detailed information including realistic salary data and skill matching.
+IMPORTANT: Provide detailed information including realistic salary data, skill matching, AND comprehensive learning resources.
 
 Return your response as a JSON object with this exact structure:
 {{
@@ -218,22 +218,79 @@ Return your response as a JSON object with this exact structure:
       "estimated_salary": number (expected earnings during this step),
       "skills_to_acquire": ["skill1", "skill2", ...],
       "actions": ["action1", "action2", ...],
-      "estimated_cost": number (tuition, certifications, etc. in USD)
+      "estimated_cost": number (tuition, certifications, etc. in USD),
+      
+      "learning_resources": [
+        {{
+          "skill": "specific skill name",
+          "resource_type": "youtube|course|documentation|certification|book|bootcamp",
+          "title": "Resource title",
+          "url": "https://actual-url.com OR search term if URL unknown",
+          "provider": "YouTube|Coursera|Udemy|edX|Official Docs|etc",
+          "duration": "2 hours|4 weeks|3 months|etc",
+          "cost": "Free|$49|$299|etc",
+          "difficulty": "Beginner|Intermediate|Advanced",
+          "why_recommended": "Brief explanation"
+        }}
+      ],
+      
+      "certifications": [
+        {{
+          "name": "Certification name",
+          "provider": "Issuing organization",
+          "estimated_cost": number,
+          "study_duration": "time needed to prepare",
+          "validity": "lifetime|2 years|etc",
+          "url": "https://certification-url.com OR search term",
+          "importance": "Required|Highly Recommended|Optional"
+        }}
+      ],
+      
+      "practical_projects": [
+        {{
+          "project_title": "What to build/do",
+          "description": "How it helps learning",
+          "estimated_time": "duration",
+          "resources": ["link1", "link2"]
+        }}
+      ]
     }}
   ],
   
   "challenges": ["challenge1", "challenge2", ...],
   "success_tips": ["tip1", "tip2", ...],
   "alternative_paths": ["alternative role 1", "alternative role 2", ...],
-  "realistic_success_rate": number (0-100, percentage likelihood of successful transition)
+  "realistic_success_rate": number (0-100, percentage likelihood of successful transition),
+  
+  "community_resources": [
+    {{
+      "type": "Forum|Discord|Reddit|LinkedIn Group|Slack",
+      "name": "Community name",
+      "url": "URL or search term",
+      "description": "What you can get from this community"
+    }}
+  ],
+  
+  "mentorship_opportunities": [
+    "Where to find mentors in the target field"
+  ]
 }}
 
-GUIDELINES:
-- Use realistic salary data based on industry standards (e.g., pilot entry ~$40k-60k, experienced ~$150k+)
-- Calculate actual skill match percentage based on transferable skills
-- Be honest about salary drops during transition periods
-- Include estimated costs for certifications, training, etc.
-- Consider the user's current skills when determining skill match percentage
+CRITICAL REQUIREMENTS FOR LEARNING RESOURCES:
+1. Provide REAL, SPECIFIC resources (actual YouTube channels, course names, documentation sites)
+2. For popular transitions, include well-known resources (e.g., for programming: "freeCodeCamp", "The Odin Project")
+3. For aviation: FAA handbooks, specific YouTube channels like "Flight Insight", "MzeroA"
+4. For data science: "StatQuest", "3Blue1Brown", "Andrew Ng's Machine Learning Course"
+5. Include both FREE and PAID options
+6. Provide realistic time estimates for each resource
+7. Include official documentation URLs where applicable
+8. For certifications, mention actual certification names (AWS Certified, Google Cloud, FAA licenses)
+
+EXAMPLES OF GOOD RESOURCES:
+- YouTube: "Traversy Media - Full Stack Web Development", "freeCodeCamp Python Tutorial"
+- Courses: "CS50 Introduction to Computer Science (Harvard/edX)", "Google Data Analytics Certificate"
+- Docs: "MDN Web Docs", "Python Official Tutorial", "React Documentation"
+- Certifications: "AWS Solutions Architect", "CompTIA A+", "PMP Certification"
 
 Be realistic and honest. If the transition is extremely difficult or unlikely, say so and suggest more feasible alternatives."""
 
@@ -284,7 +341,10 @@ Be realistic and honest. If the transition is extremely difficult or unlikely, s
                     'required_skills': step.get('skills_to_acquire', []),
                     'description': step.get('description', ''),
                     'actions': step.get('actions', []),
-                    'estimated_cost': step.get('estimated_cost', 0)
+                    'estimated_cost': step.get('estimated_cost', 0),
+                    'learning_resources': step.get('learning_resources', []),
+                    'certifications': step.get('certifications', []),
+                    'practical_projects': step.get('practical_projects', [])
                 })
             
             # Calculate overall salary growth (from current to target)
@@ -321,7 +381,9 @@ Be realistic and honest. If the transition is extremely difficult or unlikely, s
                     'note': salary_info.get('salary_note', '')
                 },
                 'skill_translation': skill_analysis.get('skills_that_translate', []),
-                'realistic_success_rate': guidance.get('realistic_success_rate', 50)
+                'realistic_success_rate': guidance.get('realistic_success_rate', 50),
+                'community_resources': guidance.get('community_resources', []),
+                'mentorship_opportunities': guidance.get('mentorship_opportunities', [])
             }
             
             # Calculate path score

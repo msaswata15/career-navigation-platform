@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { ArrowRight, TrendingUp, Clock, Award, AlertCircle, ChevronDown, ChevronUp, BookOpen, Target, DollarSign, Zap } from 'lucide-react';
+import { 
+  ArrowRight, TrendingUp, Clock, Award, AlertCircle, ChevronDown, ChevronUp, 
+  BookOpen, Target, DollarSign, Zap, ExternalLink, Youtube, FileText, 
+  GraduationCap, Code, Users, Award as CertIcon, Star, Filter, Search,
+  TrendingDown, CheckCircle, Info, BookMarked, Lightbulb, MapPin, Rocket
+} from 'lucide-react';
 
 const CareerPaths = ({ parsedData }) => {
   const [paths, setPaths] = useState(null);
@@ -8,6 +13,10 @@ const CareerPaths = ({ parsedData }) => {
   const [error, setError] = useState(null);
   const [targetRole, setTargetRole] = useState('');
   const [expandedPath, setExpandedPath] = useState(null);
+  const [expandedStep, setExpandedStep] = useState({});
+  const [selectedFilter, setSelectedFilter] = useState('all'); // all, high-match, fast-track, high-salary
+  const [showResourcesType, setShowResourcesType] = useState('all'); // all, free, paid
+  const [activeTab, setActiveTab] = useState('overview'); // overview, resources, community
 
   const fetchCareerPaths = async () => {
     setLoading(true);
@@ -22,6 +31,9 @@ const CareerPaths = ({ parsedData }) => {
 
       const response = await axios.post('/api/v1/career-paths', payload);
       setPaths(response.data);
+      if (response.data.paths && response.data.paths.length > 0) {
+        setExpandedPath(0); // Auto-expand first path
+      }
     } catch (err) {
       console.error(err);
       setError('Failed to fetch career paths.');
@@ -30,8 +42,48 @@ const CareerPaths = ({ parsedData }) => {
     }
   };
 
-  // Auto-fetch on mount if we have data, or wait for user input?
-  // Let's wait for user to confirm or enter target role.
+  const toggleStep = (pathIndex, stepIndex) => {
+    const key = `${pathIndex}-${stepIndex}`;
+    setExpandedStep(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const getFilteredPaths = () => {
+    if (!paths || !paths.paths) return [];
+    
+    let filtered = [...paths.paths];
+    
+    switch(selectedFilter) {
+      case 'high-match':
+        return filtered.sort((a, b) => (b.skill_match || 0) - (a.skill_match || 0));
+      case 'fast-track':
+        return filtered.sort((a, b) => (a.timeline_months || 999) - (b.timeline_months || 999));
+      case 'high-salary':
+        return filtered.sort((a, b) => (b.salary_growth || 0) - (a.salary_growth || 0));
+      default:
+        return filtered.sort((a, b) => (b.score || 0) - (a.score || 0));
+    }
+  };
+
+  const getScoreColor = (score) => {
+    if (score >= 70) return 'bg-green-500 text-white';
+    if (score >= 50) return 'bg-yellow-500 text-white';
+    return 'bg-orange-500 text-white';
+  };
+
+  const getDifficultyColor = (difficulty) => {
+    if (difficulty <= 3) return 'text-green-600 bg-green-50';
+    if (difficulty <= 6) return 'text-yellow-600 bg-yellow-50';
+    return 'text-red-600 bg-red-50';
+  };
+
+  const getDifficultyLabel = (difficulty) => {
+    if (difficulty <= 3) return 'Easy';
+    if (difficulty <= 6) return 'Moderate';
+    return 'Challenging';
+  };
 
   return (
     <div className="max-w-4xl mx-auto mt-8 p-6">
@@ -230,6 +282,146 @@ const CareerPaths = ({ parsedData }) => {
                                   </div>
                                 )}
 
+                                {/* Learning Resources Section */}
+                                {transition.learning_resources && transition.learning_resources.length > 0 && (
+                                  <div className="mt-3 bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+                                    <p className="text-sm font-bold text-indigo-900 mb-3 flex items-center">
+                                      <GraduationCap className="w-4 h-4 mr-2" />
+                                      📖 Learning Resources ({transition.learning_resources.length})
+                                    </p>
+                                    <div className="space-y-3">
+                                      {transition.learning_resources.map((resource, rIdx) => (
+                                        <div key={rIdx} className="bg-white p-3 rounded-lg border border-indigo-300 hover:shadow-md transition-shadow">
+                                          <div className="flex items-start justify-between mb-2">
+                                            <div className="flex-1">
+                                              <div className="flex items-center mb-1">
+                                                {resource.resource_type === 'youtube' && <Youtube className="w-4 h-4 mr-2 text-red-600" />}
+                                                {resource.resource_type === 'course' && <GraduationCap className="w-4 h-4 mr-2 text-blue-600" />}
+                                                {resource.resource_type === 'documentation' && <FileText className="w-4 h-4 mr-2 text-gray-600" />}
+                                                {resource.resource_type === 'certification' && <CertIcon className="w-4 h-4 mr-2 text-purple-600" />}
+                                                {resource.resource_type === 'book' && <BookOpen className="w-4 h-4 mr-2 text-amber-600" />}
+                                                <a 
+                                                  href={resource.url.startsWith('http') ? resource.url : `https://www.google.com/search?q=${encodeURIComponent(resource.url)}`}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="font-semibold text-indigo-700 hover:text-indigo-900 hover:underline text-sm"
+                                                >
+                                                  {resource.title}
+                                                </a>
+                                                <ExternalLink className="w-3 h-3 ml-1 text-gray-400" />
+                                              </div>
+                                              <p className="text-xs text-gray-600 mb-2">
+                                                <span className="font-medium">Skill:</span> {resource.skill} • 
+                                                <span className="ml-1 font-medium">Provider:</span> {resource.provider}
+                                              </p>
+                                              <div className="flex flex-wrap gap-2 mb-2">
+                                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">
+                                                  ⏱️ {resource.duration}
+                                                </span>
+                                                <span className={`px-2 py-0.5 text-xs rounded ${
+                                                  resource.cost === 'Free' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                                                }`}>
+                                                  💰 {resource.cost}
+                                                </span>
+                                                <span className={`px-2 py-0.5 text-xs rounded ${
+                                                  resource.difficulty === 'Beginner' ? 'bg-green-100 text-green-700' :
+                                                  resource.difficulty === 'Intermediate' ? 'bg-yellow-100 text-yellow-700' :
+                                                  'bg-red-100 text-red-700'
+                                                }`}>
+                                                  📊 {resource.difficulty}
+                                                </span>
+                                              </div>
+                                              <p className="text-xs text-gray-600 italic">
+                                                ✨ {resource.why_recommended}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Certifications Section */}
+                                {transition.certifications && transition.certifications.length > 0 && (
+                                  <div className="mt-3 bg-purple-50 p-4 rounded-lg border border-purple-200">
+                                    <p className="text-sm font-bold text-purple-900 mb-3 flex items-center">
+                                      <CertIcon className="w-4 h-4 mr-2" />
+                                      🎓 Certifications ({transition.certifications.length})
+                                    </p>
+                                    <div className="space-y-3">
+                                      {transition.certifications.map((cert, cIdx) => (
+                                        <div key={cIdx} className="bg-white p-3 rounded-lg border border-purple-300">
+                                          <div className="flex items-start justify-between mb-2">
+                                            <div className="flex-1">
+                                              <div className="flex items-center mb-1">
+                                                <a 
+                                                  href={cert.url.startsWith('http') ? cert.url : `https://www.google.com/search?q=${encodeURIComponent(cert.url)}`}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="font-semibold text-purple-700 hover:text-purple-900 hover:underline text-sm"
+                                                >
+                                                  {cert.name}
+                                                </a>
+                                                <ExternalLink className="w-3 h-3 ml-1 text-gray-400" />
+                                                <span className={`ml-2 px-2 py-0.5 text-xs rounded ${
+                                                  cert.importance === 'Required' ? 'bg-red-100 text-red-700 font-bold' :
+                                                  cert.importance === 'Highly Recommended' ? 'bg-orange-100 text-orange-700' :
+                                                  'bg-gray-100 text-gray-700'
+                                                }`}>
+                                                  {cert.importance}
+                                                </span>
+                                              </div>
+                                              <p className="text-xs text-gray-600 mb-1">
+                                                <span className="font-medium">Provider:</span> {cert.provider}
+                                              </p>
+                                              <div className="flex flex-wrap gap-2">
+                                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">
+                                                  📅 Study: {cert.study_duration}
+                                                </span>
+                                                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">
+                                                  💵 ${cert.estimated_cost}
+                                                </span>
+                                                <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded">
+                                                  ⏰ Valid: {cert.validity}
+                                                </span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Practical Projects Section */}
+                                {transition.practical_projects && transition.practical_projects.length > 0 && (
+                                  <div className="mt-3 bg-teal-50 p-4 rounded-lg border border-teal-200">
+                                    <p className="text-sm font-bold text-teal-900 mb-3 flex items-center">
+                                      <Code className="w-4 h-4 mr-2" />
+                                      🛠️ Practical Projects ({transition.practical_projects.length})
+                                    </p>
+                                    <div className="space-y-2">
+                                      {transition.practical_projects.map((project, pIdx) => (
+                                        <div key={pIdx} className="bg-white p-3 rounded-lg border border-teal-300">
+                                          <p className="font-semibold text-teal-700 text-sm mb-1">{project.project_title}</p>
+                                          <p className="text-xs text-gray-600 mb-2">{project.description}</p>
+                                          <div className="flex items-center gap-2">
+                                            <span className="px-2 py-0.5 bg-teal-100 text-teal-700 text-xs rounded">
+                                              ⏱️ {project.estimated_time}
+                                            </span>
+                                            {project.resources && project.resources.length > 0 && (
+                                              <span className="text-xs text-gray-500">
+                                                📚 {project.resources.join(', ')}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
                                 {transition.skills_match && transition.skills_match.length > 0 && (
                                   <div className="bg-green-50 p-3 rounded-lg border border-green-200 mt-2">
                                     <p className="text-xs font-semibold text-green-800 mb-2">
@@ -260,6 +452,55 @@ const CareerPaths = ({ parsedData }) => {
                             <span className="font-semibold">Total Salary Increase: +${path.salary_growth.toLocaleString()}</span>
                           </div>
                         </div>
+
+                        {/* Community Resources */}
+                        {path.community_resources && path.community_resources.length > 0 && (
+                          <div className="ml-4 mt-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <p className="text-sm font-bold text-blue-900 mb-3 flex items-center">
+                              <Users className="w-4 h-4 mr-2" />
+                              👥 Community & Support
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {path.community_resources.map((community, cIdx) => (
+                                <div key={cIdx} className="bg-white p-3 rounded-lg border border-blue-300">
+                                  <div className="flex items-center mb-1">
+                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded mr-2 font-semibold">
+                                      {community.type}
+                                    </span>
+                                    <a 
+                                      href={community.url.startsWith('http') ? community.url : `https://www.google.com/search?q=${encodeURIComponent(community.url)}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="font-semibold text-blue-700 hover:text-blue-900 hover:underline text-sm"
+                                    >
+                                      {community.name}
+                                    </a>
+                                    <ExternalLink className="w-3 h-3 ml-1 text-gray-400" />
+                                  </div>
+                                  <p className="text-xs text-gray-600">{community.description}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Mentorship Opportunities */}
+                        {path.mentorship_opportunities && path.mentorship_opportunities.length > 0 && (
+                          <div className="ml-4 mt-4 bg-amber-50 p-4 rounded-lg border border-amber-200">
+                            <p className="text-sm font-bold text-amber-900 mb-3 flex items-center">
+                              <Users className="w-4 h-4 mr-2" />
+                              🤝 Find a Mentor
+                            </p>
+                            <ul className="space-y-2">
+                              {path.mentorship_opportunities.map((opportunity, mIdx) => (
+                                <li key={mIdx} className="flex items-start">
+                                  <span className="text-amber-600 mr-2">•</span>
+                                  <span className="text-sm text-gray-700">{opportunity}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
